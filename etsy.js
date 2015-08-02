@@ -7,7 +7,7 @@ var TERM = 'seed bead necklace';
 //var TERM = 'bead embroidered necklace beaded necklace';
 
 var searchPageIndex = 0;
-var SEARCH_PAGE_LIMIT = 1;
+var SEARCH_PAGE_LIMIT = 10;
 var uniqueShops = {};
 var shopIndex = 0;
 
