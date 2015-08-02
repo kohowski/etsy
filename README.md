@@ -1,1 +1,1 @@
-# etsy
+phantomjs --config=config.js etsy.js
