@@ -2,11 +2,14 @@ var page = require('webpage').create();
 var system = require('system');
 var loadedCount = 0;
 
-var TERM = 'some relevant search';
-var HEART_SELECTOR = '.favorite-container button:not(.done)';
+//var TERM = 'seed bead pendant';
+var TERM = 'seed bead necklace';
+//var TERM = 'bead embroidered necklace beaded necklace';
 
-var searchPage = 0;
-var SEARCH_PAGE_LIMIT = 20;
+var searchPageIndex = 0;
+var SEARCH_PAGE_LIMIT = 1;
+var uniqueShops = {};
+var shopIndex = 0;
 
 page.settings.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/600.7.12 (KHTML, like Gecko) Version/8.0.7 Safari/600.7.12';
 
@@ -37,11 +40,11 @@ page.settings.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) Apple
 //    system.stderr.writeLine('  will navigate: ' + willNavigate);
 //    system.stderr.writeLine('  from page\'s main frame: ' + main);
 //};
-//page.onResourceError = function(resourceError) {
-//    system.stderr.writeLine('= onResourceError()');
-//    system.stderr.writeLine('  - unable to load url: "' + resourceError.url + '"');
-//    system.stderr.writeLine('  - error code: ' + resourceError.errorCode + ', description: ' + resourceError.errorString );
-//};
+page.onResourceError = function(resourceError) {
+    system.stderr.writeLine('= onResourceError()');
+    system.stderr.writeLine('  - unable to load url: "' + resourceError.url + '"');
+    system.stderr.writeLine('  - error code: ' + resourceError.errorCode + ', description: ' + resourceError.errorString );
+};
 
 page.onError = function (msg, trace) {
     system.stderr.writeLine('= onError()');
@@ -55,12 +58,11 @@ page.onError = function (msg, trace) {
     system.stderr.writeLine(msgStack.join('\n'));
 };
 
-//page.onConsoleMessage = function (msg) {
-//    console.log(msg);
-//};
+page.onConsoleMessage = function (msg) {
+    console.log(msg);
+};
 
 page.onLoadFinished = function (status) {
-    //console.log(status);
     loadedCount++;
     //page.render('render' + loadedCount + '.png');
     if (status != 'success') {
@@ -73,36 +75,53 @@ page.onLoadFinished = function (status) {
             $('#password-existing').val('');
             $('#signin-form').submit();
         });
-    } else { // logged in
-        if (searchPage == 0) {
-            system.stderr.writeLine('Logged in.');
-        } else {
-            var notLiked = page.evaluate(function (sel) {
-                                                                                return $(sel).size();
-            }, HEART_SELECTOR);
-            var clicked = page.evaluate(function (sel, edge) {
-                                                                                var clicked = 0;
-                                                                                $(sel).each(function () {
-                                                                                    if (Math.random() < edge) {
-                                                                                        this.click();
-                                                                                        clicked++;
-                                                                                    }
-                                                                                });
-                                                                                return clicked;
-            }, HEART_SELECTOR, Math.random());
-            system.stderr.writeLine('Clicked ' + clicked + '/' + notLiked + ' hearts on page #' + searchPage);
+    } else if (loadedCount == 2) {
+        system.stderr.writeLine('Logged in.');
+        navigate('https://www.etsy.com/search?q=' + TERM+ '&page=' + ++searchPageIndex);
+    } else if (searchPageIndex <= SEARCH_PAGE_LIMIT) {
+        var shops = page.evaluate(function (edge) {
+                                                                            var shops = [];
+                                                                            $('.favorite-container button:not(.done)').each(function () {
+                                                                                if (Math.random() < edge) {
+                                                                                    this.click();
+                                                                                    shops.push($(this).parents('.listing-card').find('.card-shop-name').attr('href'));
+                                                                                }
+                                                                            });
+                                                                            return shops;
+        }, Math.random());
+        system.stderr.writeLine('Favorited ' + shops.length + ' listings on page #' + searchPageIndex);
+        for (var i = 0; i < shops.length; i++) {
+            uniqueShops[shops[i]] = 1;
         }
-        searchPage++;
-        if (searchPage > SEARCH_PAGE_LIMIT) {
+        if (searchPageIndex < SEARCH_PAGE_LIMIT) {
+            navigate('https://www.etsy.com/search?q=' + TERM + '&page=' + ++searchPageIndex);
+        } else if (Object.keys(uniqueShops).length > 0) {
+            searchPageIndex++;
+            system.stderr.writeLine('Will favorite ' + Object.keys(uniqueShops).length + ' shops.');
+            navigate(Object.keys(uniqueShops)[shopIndex++]);
+        } else {
             phantom.exit(0);
         }
-
-        var sleepSeconds = Math.floor((Math.random() * 3) + 2);
-        system.stderr.writeLine('Sleeping ' + sleepSeconds + ' seconds.');
-        setTimeout(function() {
-            page.open('https://www.etsy.com/search?q=' + TERM + '&page=' + searchPage);
-        }, 1000 * sleepSeconds);
+    } else if (shopIndex <= Object.keys(uniqueShops).length) {
+        page.evaluate(function() {
+            $('.button-fave-container a:not(.favorited-button)').click();
+        });
+        system.stderr.writeLine('Favoirted ' + shopIndex + '-th shop.');
+        if (shopIndex < Object.keys(uniqueShops).length) {
+            navigate(Object.keys(uniqueShops)[shopIndex++]);
+        } else {
+            phantom.exit(0);
+        }
     }
+    system.stderr.writeLine();
 };
+
+function navigate(url) {
+    var sleepSeconds = Math.floor((Math.random() * 3) + 3);
+    system.stderr.writeLine('Sleeping ' + sleepSeconds + ' seconds.');
+    setTimeout(function() {
+        page.open(url);
+    }, 1000 * sleepSeconds);
+}
 
 page.open('https://www.etsy.com');
