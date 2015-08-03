@@ -2,8 +2,8 @@ var page = require('webpage').create();
 var system = require('system');
 var loadedCount = 0;
 
-var TERM = 'seed bead necklace';
-//var TERM = 'seed bead pendant';
+var TERM = 'seed bead embroidery';
+//var TERM = 'seed bead bracelet';
 //var TERM = 'bead embroidered necklace beaded necklace';
 
 var searchPageIndex = 0;
@@ -60,7 +60,7 @@ page.onLoadFinished = function (status) {
     loadedCount++;
     //page.render('render' + loadedCount + '.png');
     if (status != 'success') {
-        phantom.exit(1);
+        exit(1);
     }
     if (loadedCount == 1) {
         system.stderr.writeLine('Landed.');
@@ -75,13 +75,17 @@ page.onLoadFinished = function (status) {
     } else if (searchPageIndex <= SEARCH_PAGE_LIMIT) {
         var shops = page.evaluate(function (edge) {
                                                                             var shops = [];
-                                                                            $('.favorite-container button:not(.done)').each(function () {
-                                                                                if (Math.random() < edge) {
-                                                                                    this.click();
-                                                                                    var shopUrl = $(this).parents('.listing-card').find('.card-shop-name').attr('href');
-                                                                                    shops.push(shopUrl.substring(0, shopUrl.indexOf('?')));
-                                                                                }
-                                                                            });
+                                                                            try {
+                                                                                $('.favorite-container button:not(.done)').each(function () {
+                                                                                    if (Math.random() < edge) {
+                                                                                        this.click();
+                                                                                        var shopUrl = $(this).parents('.listing-card').find('.card-shop-name').attr('href');
+                                                                                        shops.push(shopUrl.substring(0, shopUrl.indexOf('?')));
+                                                                                    }
+                                                                                });
+                                                                            } catch(e) {
+                                                                                console.log('Jquery not loaded');
+                                                                            }
                                                                             return shops;
         }, Math.random());
         system.stderr.writeLine('Favorited ' + shops.length + ' listings on page #' + searchPageIndex);
@@ -93,24 +97,25 @@ page.onLoadFinished = function (status) {
         } else if (Object.keys(uniqueShops).length > 0) {
             searchPageIndex++; // <-- just a hack to proceed to the next elseif
             system.stderr.writeLine('Will favorite ' + Object.keys(uniqueShops).length + ' shops.');
-            //system.stderr.writeLine(JSON.stringify(Object.keys(uniqueShops)));
+            system.stderr.writeLine(JSON.stringify(Object.keys(uniqueShops)));
             navigate(Object.keys(uniqueShops)[shopIndex++]);
         } else {
-            phantom.exit(0);
+            exit(0);
         }
-    } else if (shopIndex <= Object.keys(uniqueShops).length) {
+    } else {
+    //} else if (shopIndex <= Object.keys(uniqueShops).length) {
         page.evaluate(function() {
-            try {
-                $('.button-fave-container a:not(.favorited-button)').click();
-            } catch (e) {
-                console.log('Jquery not loaded');
-            }
+                                                                            try {
+                                                                                $('.button-fave-container a:not(.favorited-button)').click();
+                                                                            } catch (e) {
+                                                                                console.log('Jquery not loaded');
+                                                                            }
         });
         system.stderr.writeLine('Favoirted ' + shopIndex + '-th shop.');
         if (shopIndex < Object.keys(uniqueShops).length) {
             navigate(Object.keys(uniqueShops)[shopIndex++]);
         } else {
-            phantom.exit(0);
+            exit(0);
         }
     }
 };
@@ -121,6 +126,13 @@ function navigate(url) {
     setTimeout(function() {
         page.open(url);
     }, 1000 * sleepSeconds);
+}
+
+function exit(status) {
+    system.stderr.writeLine('Exiting..');
+    setTimeout(function() {
+        phantom.exit(status);
+    }, 1000 * 3);
 }
 
 page.open('https://www.etsy.com');
